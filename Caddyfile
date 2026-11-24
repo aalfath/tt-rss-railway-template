@@ -1,0 +1,28 @@
+{
+	admin off
+	auto_https off
+	persist_config off
+	servers {
+		# Railway's edge terminates TLS and sets X-Forwarded-Proto
+		trusted_proxies static 0.0.0.0/0 ::/0
+	}
+}
+
+:{$PORT:8080} {
+	root * /var/www/html/tt-rss
+
+	# same as upstream nginx: cache, lock and backups are never served directly;
+	# also hide dot files (.git, .app_is_ready)
+	@blocked path_regexp blocked ^/(cache|lock|backups)(/|$)|/\.
+	respond @blocked 404
+
+	# health check without login (upstream's /healthz)
+	rewrite /healthz /public.php?op=healthcheck
+
+	encode zstd gzip
+
+	php_fastcgi 127.0.0.1:9000 {
+		try_files {path} {path}/index.php =404
+	}
+	file_server
+}
